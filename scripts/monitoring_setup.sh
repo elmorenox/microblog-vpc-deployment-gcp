@@ -20,8 +20,7 @@ sudo cp -r prometheus-2.37.0.linux-amd64/consoles /etc/prometheus
 sudo cp -r prometheus-2.37.0.linux-amd64/console_libraries /etc/prometheus
 rm -rf prometheus-2.37.0.linux-amd64*
 
-# Create Prometheus configuration with hardcoded app server IP
-# Modify the prometheus.yml section:
+# Create Prometheus configuration with app server IP
 cat > /tmp/prometheus.yml << 'EOL'
 global:
   scrape_interval: 15s
@@ -108,10 +107,33 @@ providers:
 EOL
 sudo cp /tmp/dashboard_provider.yml /opt/grafana/conf/provisioning/dashboards/
 
-# Create Grafana service
-# Update Grafana service section:
+# Create custom Grafana configuration to disable API authentication
+sudo mkdir -p /opt/grafana/conf/custom
+cat > /tmp/custom.ini << 'EOL'
+[auth]
+# Disable login form
+disable_login_form = false
 
-# Create Grafana service with correct paths
+[auth.anonymous]
+# Enable anonymous access
+enabled = true
+# Organization name that should be used for anonymous users
+org_name = Main Org.
+# Role for anonymous users
+org_role = Admin
+
+[security]
+# Disable authentication for the API
+disable_initial_admin_creation = true
+api_key_max_seconds_to_live = 0
+
+[auth.proxy]
+enabled = false
+EOL
+
+sudo cp /tmp/custom.ini /opt/grafana/conf/custom/custom.ini
+
+# Create Grafana service with both config files
 cat > /tmp/grafana.service << 'EOL'
 [Unit]
 Description=Grafana
@@ -122,6 +144,7 @@ After=network-online.target
 Type=simple
 ExecStart=/opt/grafana/grafana-9.0.5/bin/grafana-server \
   --config=/opt/grafana/conf/defaults.ini \
+  --config=/opt/grafana/conf/custom/custom.ini \
   --homepath=/opt/grafana/grafana-9.0.5
 
 [Install]

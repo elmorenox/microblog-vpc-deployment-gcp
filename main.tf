@@ -1,320 +1,264 @@
 # main.tf
-provider "aws" {
-  region     = var.region
-  access_key = var.aws_access_key
-  secret_key = var.aws_secret_key
+provider "google" {
+  project     = var.project_id
+  region      = var.region
 }
 
-
-# VPC and Network Resources
-resource "aws_vpc" "custom_vpc" {
-  cidr_block           = var.vpc_cidr
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-
-  tags = {
-    Name = "Custom-VPC"
-  }
+# VPC Network
+resource "google_compute_network" "custom_vpc" {
+  name                    = "custom-vpc"
+  auto_create_subnetworks = false
 }
 
-# Internet Gateway
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.custom_vpc.id
-
-  tags = {
-    Name = "Custom-IGW"
-  }
-}
 
 # Public Subnet
-resource "aws_subnet" "public_subnet" {
-  vpc_id                  = aws_vpc.custom_vpc.id
-  cidr_block              = var.public_subnet_cidr
-  map_public_ip_on_launch = true
-  availability_zone       = var.availability_zone
-
-  tags = {
-    Name = "Public-Subnet"
-  }
+resource "google_compute_subnetwork" "public_subnet" {
+  name          = "public-subnet"
+  ip_cidr_range = var.public_subnet_cidr
+  region        = var.region
+  network       = google_compute_network.custom_vpc.id
+  private_ip_google_access = true
 }
 
 # Private Subnet
-resource "aws_subnet" "private_subnet" {
-  vpc_id            = aws_vpc.custom_vpc.id
-  cidr_block        = var.private_subnet_cidr
-  availability_zone = var.availability_zone
-
-  tags = {
-    Name = "Private-Subnet"
-  }
+resource "google_compute_subnetwork" "private_subnet" {
+  name          = "private-subnet"
+  ip_cidr_range = var.private_subnet_cidr
+  region        = var.region
+  network       = google_compute_network.custom_vpc.id
+  private_ip_google_access = true
 }
 
-# Elastic IP for NAT Gateway
-resource "aws_eip" "nat_eip" {
-  domain = "vpc"
-  depends_on = [aws_internet_gateway.igw]
+# Router for NAT Gateway
+resource "google_compute_router" "router" {
+  name    = "nat-router"
+  region  = var.region
+  network = google_compute_network.custom_vpc.id
 }
 
-# NAT Gateway
-resource "aws_nat_gateway" "nat_gw" {
-  allocation_id = aws_eip.nat_eip.id
-  subnet_id     = aws_subnet.public_subnet.id
-
-  tags = {
-    Name = "Custom-NAT-GW"
-  }
-
-  depends_on = [aws_internet_gateway.igw]
-}
-
-# Public Route Table
-resource "aws_route_table" "public_rt" {
-  vpc_id = aws_vpc.custom_vpc.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
-  }
-
-  tags = {
-    Name = "Public-Route-Table"
-  }
-}
-
-# Private Route Table
-resource "aws_route_table" "private_rt" {
-  vpc_id = aws_vpc.custom_vpc.id
-
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.nat_gw.id
-  }
-
-  tags = {
-    Name = "Private-Route-Table"
-  }
-}
-
-# Route Table Association - Public
-resource "aws_route_table_association" "public_rta" {
-  subnet_id      = aws_subnet.public_subnet.id
-  route_table_id = aws_route_table.public_rt.id
-}
-
-# Route Table Association - Private
-resource "aws_route_table_association" "private_rta" {
-  subnet_id      = aws_subnet.private_subnet.id
-  route_table_id = aws_route_table.private_rt.id
-}
-
-# Security Groups
-resource "aws_security_group" "jenkins_sg" {
-  name        = "jenkins_sg"
-  description = "Allow SSH and Jenkins traffic"
-  vpc_id      = aws_vpc.custom_vpc.id 
-
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "Jenkins-SG"
-  }
-}
-
-resource "aws_security_group" "web_sg" {
-  name        = "web_sg"
-  description = "Allow SSH and HTTP traffic"
-  vpc_id      = aws_vpc.custom_vpc.id
-
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "Web-Server-SG"
-  }
-}
-
-resource "aws_security_group" "app_sg" {
-  name        = "app_sg"
-  description = "Allow SSH and Flask traffic"
-  vpc_id      = aws_vpc.custom_vpc.id
-
-  ingress {
-    from_port       = 22
-    to_port         = 22
-    protocol        = "tcp"
-    security_groups = [aws_security_group.web_sg.id]
-  }
-
-  ingress {
-    from_port       = 5000
-    to_port         = 5000
-    protocol        = "tcp"
-    security_groups = [aws_security_group.web_sg.id]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "App-Server-SG"
-  }
-}
-
-resource "aws_security_group" "monitoring_sg" {
-  name        = "monitoring_sg"
-  description = "Allow SSH, Prometheus and Grafana traffic"
-  vpc_id      = aws_vpc.custom_vpc.id
-
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 9090
-    to_port     = 9090
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 3000
-    to_port     = 3000
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "Monitoring-SG"
-  }
+# Cloud NAT
+resource "google_compute_router_nat" "nat" {
+  name                               = "cloud-nat"
+  router                             = google_compute_router.router.name
+  region                             = var.region
+  nat_ip_allocate_option             = "AUTO_ONLY"
+  source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
 }
 
 
-# EC2 Instances
-# EC2 Instances - just use the existing key name
-resource "aws_instance" "jenkins" {
-  ami                    = var.ec2_ami
-  instance_type          = "t3.medium"
-  key_name               = var.ssh_key_name  # Simply reference the existing key name
-  vpc_security_group_ids = [aws_security_group.jenkins_sg.id]
-  subnet_id              = aws_subnet.public_subnet.id
+# Jenkins Firewall Rule
+resource "google_compute_firewall" "jenkins_fw" {
+  name    = "jenkins-firewall"
+  network = google_compute_network.custom_vpc.id
 
-  # Add the private key to user data
-  user_data = templatefile("scripts/jenkins_setup.sh", {
+  allow {
+    protocol = "tcp"
+    ports    = ["22", "8080"]
+  }
+
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["jenkins"]
+}
+
+# Web Server Firewall Rule
+resource "google_compute_firewall" "web_fw" {
+  name    = "webserver-firewall"
+  network = google_compute_network.custom_vpc.id
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22", "80"]
+  }
+
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["web-server"]
+}
+
+# App Server Firewall Rule
+resource "google_compute_firewall" "app_fw" {
+  name    = "appserver-firewall"
+  network = google_compute_network.custom_vpc.id
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22", "5000"]
+  }
+
+  source_tags = ["web-server"]
+  target_tags = ["app-server"]
+}
+
+# Monitoring Firewall Rule
+resource "google_compute_firewall" "monitoring_fw" {
+  name    = "monitoring-firewall"
+  network = google_compute_network.custom_vpc.id
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22", "9090", "3000"]
+  }
+
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["monitoring"]
+}
+
+# External IP for Jenkins VM
+resource "google_compute_address" "jenkins_ip" {
+  name   = "jenkins-ip"
+  region = var.region
+}
+
+# External IP for Web Server VM
+resource "google_compute_address" "web_server_ip" {
+  name   = "web-server-ip"
+  region = var.region
+}
+
+# External IP for Monitoring VM
+resource "google_compute_address" "monitoring_ip" {
+  name   = "monitoring-ip"
+  region = var.region
+}
+
+# Compute Instances (VMs)
+
+# Jenkins VM
+resource "google_compute_instance" "jenkins" {
+  name         = "jenkins"
+  machine_type = "e2-medium"
+  zone         = var.availability_zone
+  tags         = ["jenkins"]
+
+  boot_disk {
+    initialize_params {
+      image = var.image
+    }
+  }
+
+  network_interface {
+    network    = google_compute_network.custom_vpc.id
+    subnetwork = google_compute_subnetwork.public_subnet.id
+    access_config {
+      nat_ip = google_compute_address.jenkins_ip.address
+    }
+  }
+
+  metadata_startup_script = templatefile("scripts/jenkins_setup.sh", {
     private_key_content = file(var.private_key_path)
   })
 
-  tags = {
-    Name = "Jenkins"
+  service_account {
+    email  = var.service_email
+    scopes = ["cloud-platform"]
   }
+
+  depends_on = [
+    google_compute_subnetwork.public_subnet
+  ]
 }
 
+# Web Server VM with static private IP
+resource "google_compute_instance" "web_server" {
+  name         = "web-server"
+  machine_type = "e2-small"  # Similar to t3.micro
+  zone         = var.availability_zone
+  tags         = ["web-server"]
 
-resource "aws_instance" "web_server" {
-  ami                    = var.ec2_ami
-  instance_type          = "t3.micro"
-  key_name               = var.ssh_key_name
-  subnet_id              = aws_subnet.public_subnet.id
-  vpc_security_group_ids = [aws_security_group.web_sg.id]
-  private_ip = "10.0.1.100" 
+  boot_disk {
+    initialize_params {
+      image = var.image
+    }
+  }
 
-  user_data = templatefile("scripts/web_server_setup.sh", {
-    app_server_ip = aws_instance.app_server.private_ip,
+  network_interface {
+    network    = google_compute_network.custom_vpc.id
+    subnetwork = google_compute_subnetwork.public_subnet.id
+    network_ip = "10.0.1.100"
+    access_config {
+      nat_ip = google_compute_address.web_server_ip.address
+    }
+  }
+
+  metadata_startup_script = templatefile("scripts/web_server_setup.sh", {
+    app_server_ip = google_compute_instance.app_server.network_interface[0].network_ip
     private_key_content = file(var.private_key_path)
   })
 
-  depends_on = [aws_route_table_association.public_rta, aws_instance.app_server]
-
-  tags = {
-    Name = "Web_Server"
+  service_account {
+    email  = var.service_email
+    scopes = ["cloud-platform"]
   }
+
+  depends_on = [
+    google_compute_instance.app_server
+  ]
 }
 
+# App Server VM with static private IP
+resource "google_compute_instance" "app_server" {
+  name         = "app-server"
+  machine_type = "e2-small"  # Similar to t3.micro
+  zone         = var.availability_zone
+  tags         = ["app-server"]
 
-resource "aws_instance" "app_server" {
-  ami                    = var.ec2_ami
-  instance_type          = "t3.micro"
-  key_name               = var.ssh_key_name
-  subnet_id              = aws_subnet.private_subnet.id
-  vpc_security_group_ids = [aws_security_group.app_sg.id]
-  private_ip             = "10.0.2.100"
+  boot_disk {
+    initialize_params {
+      image = var.image
+    }
+  }
 
-  # Use user_data to create the file during boot
-  user_data = templatefile("scripts/app_server_setup.sh", {
+  network_interface {
+    network    = google_compute_network.custom_vpc.id
+    subnetwork = google_compute_subnetwork.private_subnet.id
+    network_ip = "10.0.2.100"
+  }
+
+  metadata_startup_script = templatefile("scripts/app_server_setup.sh", {
     start_app_script_content = file("scripts/start_app.sh")
   })
 
-  depends_on = [aws_route_table_association.private_rta]
-
-  tags = {
-    Name = "Application_Server"
+  service_account {
+    email  = var.service_email
+    scopes = ["cloud-platform"]
   }
+
+  depends_on = [
+    google_compute_subnetwork.private_subnet,
+    google_compute_router_nat.nat
+  ]
 }
 
-resource "aws_instance" "monitoring" {
-  ami                    = var.ec2_ami
-  instance_type          = "t3.micro"
-  key_name               = var.ssh_key_name
-  subnet_id              = aws_subnet.public_subnet.id
-  vpc_security_group_ids = [aws_security_group.monitoring_sg.id]
+# Monitoring VM
+resource "google_compute_instance" "monitoring" {
+  name         = "monitoring"
+  machine_type = "e2-small"
+  zone         = var.availability_zone
+  tags         = ["monitoring"]
 
-  user_data = templatefile("scripts/monitoring_setup.sh", {
-    app_server_ip = aws_instance.app_server.private_ip
+  boot_disk {
+    initialize_params {
+      image = var.image
+    }
+  }
+
+  network_interface {
+    network    = google_compute_network.custom_vpc.id
+    subnetwork = google_compute_subnetwork.public_subnet.id
+    access_config {
+      nat_ip = google_compute_address.monitoring_ip.address
+    }
+  }
+
+  metadata_startup_script = templatefile("scripts/monitoring_setup.sh", {
+    app_server_ip = google_compute_instance.app_server.network_interface[0].network_ip
   })
 
-  depends_on = [aws_route_table_association.public_rta, aws_instance.app_server]
-
-  tags = {
-    Name = "Monitoring"
+  service_account {
+    email  = var.service_email
+    scopes = ["cloud-platform"]
   }
+
+  depends_on = [
+    google_compute_instance.app_server
+  ]
 }

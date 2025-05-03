@@ -11,7 +11,7 @@ sudo apt install -y git python3 python3-pip python3-venv
 mkdir -p /home/ubuntu/microblog
 
 # Get GitHub repository URL from file (created during instance setup)
-GITHUB_REPO='https://github.com/elmorenox/microblog_VPC_deployment.git'
+GITHUB_REPO='https://github.com/elmorenox/microblog-vpc-deployment-gcp.git'
 
 # Clone the repository
 if [ -d "/home/ubuntu/microblog/.git" ]; then

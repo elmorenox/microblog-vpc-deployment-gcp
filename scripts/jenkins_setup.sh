@@ -107,7 +107,7 @@ cat > job_config.xml << 'EOL'
       <jenkins.branch.BranchSource>
         <source class="jenkins.plugins.git.GitSCMSource" plugin="git@4.11.0">
           <id>1234567890</id>
-          <remote>https://github.com/elmorenox/microblog_VPC_deployment.git</remote>
+          <remote>https://github.com/elmorenox/microblog-vpc-deployment-gcp.git</remote>
           <credentialsId></credentialsId>
           <traits>
             <jenkins.plugins.git.traits.BranchDiscoveryTrait/>

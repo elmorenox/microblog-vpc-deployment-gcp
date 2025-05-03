@@ -1,8 +1,16 @@
 # variables.tf
-variable "region" {
-  description = "AWS region"
+variable "project_id" {
   type        = string
-  default     = "us-east-1"
+}
+
+variable "service_email" {
+  type        = string
+}
+
+variable "region" {
+  description = "region"
+  type        = string
+  default     = "us-east1"
 }
 
 variable "vpc_cidr" {
@@ -26,33 +34,16 @@ variable "private_subnet_cidr" {
 variable "availability_zone" {
   description = "Availability zone"
   type        = string
-  default     = "us-east-1a"
+  default     = "us-east1-b"
 }
 
-variable "ec2_ami" {
-  description = "AMI ID for EC2 instances"
+variable "image" {
+  description = "os image"
   type        = string
-  default     = "ami-053b0d53c279acc90" # Ubuntu 22.04 LTS
-}
-
-variable "aws_access_key" {
-  description = "AWS Access Key"
-  type        = string
-  sensitive   = true
-}
-
-variable "aws_secret_key" {
-  description = "AWS Secret Key"
-  type        = string
-  sensitive   = true
+  default     = "ubuntu-os-cloud/ubuntu-2204-lts" # Ubuntu 22.04 LTS
 }
 
 variable "private_key_path" {
   description = "Path to the private key file to use for SSH connections between servers"
-  type        = string
-}
-
-variable "ssh_key_name" {
-  description = "Name of the existing SSH key pair in AWS"
   type        = string
 }
