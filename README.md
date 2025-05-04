@@ -1,30 +1,30 @@
-# Microblog VPC Deployment
+# Microblog VPC Deployment on Google Cloud Platform
 
 ## PURPOSE
-The purpose of this workload is to create a robust, secure cloud infrastructure for deploying a Flask microblog application using infrastructure-as-code and CI/CD principles. This project demonstrates how to properly separate concerns across a network architecture by:
+The purpose of this workload is to create a robust, secure cloud infrastructure for deploying a Flask microblog application using infrastructure-as-code and CI/CD principles on Google Cloud Platform. This project demonstrates how to properly separate concerns across a network architecture by:
 
 1. Placing web-facing components in public subnets
-2. Securing application and database components in private subnets
+2. Securing application components in private subnets
 3. Implementing a continuous integration and deployment pipeline
 4. Setting up monitoring for the deployed application
 
-By completing this project, I've gained hands-on experience with deploying applications in a production-ready environment using AWS services and Terraform for infrastructure provisioning.
+By completing this project, I've gained hands-on experience with deploying applications in a production-ready environment using Google Cloud services and Terraform for infrastructure provisioning.
 
 ## STEPS
 
 ### 1. Infrastructure Provisioning with Terraform
-I used Terraform to provision all the required infrastructure components in AWS. This approach ensures that our infrastructure is reproducible, maintainable, and can be version-controlled.
+I used Terraform to provision all the required infrastructure components in Google Cloud Platform. This approach ensures that our infrastructure is reproducible, maintainable, and can be version-controlled.
 
 Key components created:
-- Custom VPC with public and private subnets
-- Internet Gateway and NAT Gateway for connectivity
-- Security groups to control network traffic
-- EC2 instances for different application components
+- Custom VPC Network with public and private subnets
+- Cloud Router and Cloud NAT for private subnet connectivity
+- Firewall rules to control network traffic
+- Compute Engine instances for different application components
 
 **Why important:** Infrastructure-as-code allows for consistent deployments, reduces human error, and enables version control for infrastructure changes.
 
 ### 2. Setting Up the Jenkins Server
-I created a t3.medium EC2 instance in the public subnet to host Jenkins, our CI/CD server. This required:
+I created an e2-medium Compute Engine instance in the public subnet to host Jenkins, our CI/CD server. This required:
 - Installing Jenkins and necessary plugins
 - Configuring Jenkins with SSH keys for deployment
 - Setting up the OWASP Dependency Check plugin
@@ -32,7 +32,7 @@ I created a t3.medium EC2 instance in the public subnet to host Jenkins, our CI/
 **Why important:** A dedicated CI/CD server automates building, testing and deployment processes, ensuring consistent and reliable deployments.
 
 ### 3. Configuring the Web Server
-I set up a t3.micro EC2 instance in the public subnet to serve as our web server with:
+I set up an e2-small Compute Engine instance in the public subnet to serve as our web server with:
 - Nginx installation and configuration
 - Reverse proxy setup to forward requests to the application server
 - SSH key configuration for secure communication with the app server
@@ -40,7 +40,7 @@ I set up a t3.micro EC2 instance in the public subnet to serve as our web server
 **Why important:** The web server acts as a gateway, handling external web traffic and forwarding only legitimate requests to our application server in the private subnet, adding a layer of security.
 
 ### 4. Setting Up the Application Server
-I provisioned a t3.micro EC2 instance in the private subnet where our Flask application runs:
+I provisioned an e2-small Compute Engine instance in the private subnet where our Flask application runs:
 - Created start_app.sh script to handle application deployment
 - Configured necessary dependencies for the Flask application
 - Set up environment variables and database connection
@@ -64,21 +64,23 @@ I implemented a Jenkinsfile that defines a complete pipeline:
 **Why important:** The pipeline ensures that code changes are automatically built, tested, scanned for vulnerabilities, and deployed, maintaining quality and security throughout the development lifecycle.
 
 ### 7. Setting Up Monitoring
-I deployed Prometheus and Grafana on a separate t3.micro instance to monitor our application:
+I deployed Prometheus and Grafana on a separate e2-small instance to monitor our application:
 - Configured Prometheus to collect metrics from the application server
 - Set up Grafana dashboards to visualize performance and health metrics
+- Enabled anonymous access to Grafana API for easier integration
 
 **Why important:** Monitoring provides visibility into the application's performance and health, enabling proactive identification and resolution of issues.
 
 ## SYSTEM DESIGN DIAGRAM
 
-![System Architecture Diagram](Diagram.jpg)
+![System Architecture Diagram](GCP-Diagram.jpg)
 
 The diagram illustrates the network architecture and components of our deployment:
-- VPC with public and private subnets
+- VPC Network with public and private subnets
 - Jenkins, web server, and monitoring server in the public subnet
 - Application server with SQLite database in the private subnet
-- Network connections and security group configurations
+- Cloud NAT for private subnet internet access
+- Network connections and firewall configurations
 
 ## ISSUES/TROUBLESHOOTING
 
@@ -86,11 +88,11 @@ During the implementation of this project, I encountered and resolved several ch
 
 1. **Circular Dependency in Terraform**
    - **Issue**: Creating a circular dependency between web_server and app_server resources
-   - **Solution**: Used a null_resource for provisioning after both instances were created, breaking the dependency cycle
+   - **Solution**: Used dependency management with depends_on attribute and null_resources where appropriate
 
 2. **SSH Connection Issues**
    - **Issue**: Difficulty connecting from Jenkins to the web server and from web server to app server
-   - **Solution**: Verified key permissions (chmod 600), added proper security group rules, and ensured the NAT gateway was configured correctly
+   - **Solution**: Verified key permissions (chmod 600), added proper firewall rules, and ensured Cloud NAT was configured correctly
 
 3. **Jenkins Pipeline Failures**
    - **Issue**: Test failures due to missing dependencies
@@ -100,9 +102,9 @@ During the implementation of this project, I encountered and resolved several ch
    - **Issue**: Web server not properly forwarding requests to the application
    - **Solution**: Corrected the proxy_pass configuration with the proper private IP address and ensured proper header forwarding
 
-5. **OWASP Dependency Check Setup**
-   - **Issue**: Plugin not finding the dependency-check installation
-   - **Solution**: Properly configured the tool location in Jenkins and ensured proper permissions
+5. **Grafana API Authentication**
+   - **Issue**: API authentication preventing programmatic access
+   - **Solution**: Configured custom.ini with anonymous access and disabled API authentication
 
 ## OPTIMIZATION
 
@@ -136,19 +138,20 @@ It has several limitations:
 
 ### Optimization Recommendations
 To optimize this infrastructure, I would:
-1. **Implement High Availability**: Deploy redundant instances across multiple availability zones
-2. **Add Load Balancing**: Use an Application Load Balancer in front of multiple web servers
-3. **Upgrade Database**: Replace SQLite with a managed database service like RDS
-4. **Add Auto Scaling**: Implement auto-scaling groups for web and application tiers
+1. **Implement High Availability**: Deploy redundant instances across multiple zones
+2. **Add Load Balancing**: Use a Google Cloud Load Balancer in front of multiple web servers
+3. **Upgrade Database**: Replace SQLite with Cloud SQL or other managed database service
+4. **Add Instance Groups**: Implement managed instance groups with autoscaling
 5. **Create Staging Environment**: Add a complete staging environment that mirrors production
 6. **Implement Blue-Green Deployments**: For zero-downtime deployments
-7. **Add WAF and CloudFront**: For improved security and performance
-8. **Implement Secrets Management**: Use AWS Secrets Manager or Parameter Store for sensitive data
+7. **Add Cloud Armor and Cloud CDN**: For improved security and performance
+8. **Implement Secrets Management**: Use Secret Manager for sensitive data
+9. **Container Migration**: Consider migrating to Google Kubernetes Engine for better orchestration
 
 ## CONCLUSION
 
-This project successfully demonstrates deploying a Flask application in a secure AWS infrastructure using modern DevOps practices. The separation of components between public and private subnets, implementation of a CI/CD pipeline, and addition of monitoring create a solid foundation for application deployment.
+This project successfully demonstrates deploying a Flask application in a secure Google Cloud infrastructure using modern DevOps practices. The separation of components between public and private subnets, implementation of a CI/CD pipeline, and addition of monitoring create a solid foundation for application deployment.
 
-The experience gained from this project provides valuable insight into cloud architecture design, infrastructure-as-code, and DevOps practices. While the current implementation has limitations in terms of high availability and scalability, it serves as an excellent learning opportunity and starting point for more advanced infrastructure designs.
+The experience gained from this project provides valuable insight into cloud architecture design, infrastructure-as-code, and DevOps practices in the Google Cloud ecosystem. While the current implementation has limitations in terms of high availability and scalability, it serves as an excellent learning opportunity and starting point for more advanced infrastructure designs.
 
-For a production environment, the optimization recommendations outlined above would need to be implemented to ensure reliability, scalability, and security. Nonetheless, this project represents a significant step forward from traditional deployment methods and demonstrates the value of infrastructure-as-code and CI/CD pipelines in modern application deployment.
+For a production environment, the optimization recommendations outlined above would need to be implemented to ensure reliability, scalability, and security. Nonetheless, this project represents a significant step forward from traditional deployment methods and demonstrates the value of infrastructure-as-code and CI/CD pipelines in modern application deployment on Google Cloud Platform.

@@ -76,20 +76,8 @@ sudo cp -r /opt/grafana/grafana-9.0.5/conf/* /opt/grafana/conf/
 sudo chown -R ubuntu:ubuntu /opt/grafana
 rm grafana-9.0.5.linux-amd64.tar.gz
 
-# Configure Grafana datasources and dashboards
-sudo mkdir -p /opt/grafana/conf/provisioning/{datasources,dashboards}
-
-# Create a datasource provisioning file
-cat > /tmp/prometheus_datasource.yml << 'EOL'
-apiVersion: 1
-datasources:
-  - name: Prometheus
-    type: prometheus
-    access: proxy
-    url: http://localhost:9090
-    isDefault: true
-EOL
-sudo cp /tmp/prometheus_datasource.yml /opt/grafana/conf/provisioning/datasources/
+# Set up folders for dashboards (we'll use API for datasources)
+sudo mkdir -p /opt/grafana/conf/provisioning/dashboards
 
 # Create a basic dashboard provisioning file
 cat > /tmp/dashboard_provider.yml << 'EOL'
@@ -187,5 +175,15 @@ sudo systemctl enable prometheus
 sudo systemctl start prometheus
 sudo systemctl enable grafana
 sudo systemctl start grafana
+
+# Wait for Grafana to fully start
+echo "Waiting for Grafana to start..."
+sleep 15
+
+# Create Prometheus datasource via API
+echo "Creating Prometheus datasource via API..."
+curl -s -X POST -H "Content-Type: application/json" \
+  -d '{"name":"Prometheus","type":"prometheus","url":"http://localhost:9090","access":"proxy","isDefault":true}' \
+  http://localhost:3000/api/datasources
 
 echo "Monitoring server setup completed"
