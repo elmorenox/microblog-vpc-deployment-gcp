@@ -5,7 +5,7 @@
       "Count": 1
     },
     {
-      "Type": "AvailabilityZone",
+      "Type": "Zone",
       "Count": 1
     },
     {
@@ -20,19 +20,19 @@
     },
     {
       "Type": "Compute",
-      "Subtype": "EC2",
-      "InstanceType": "t3.medium",
+      "Subtype": "Compute Engine",
+      "InstanceType": "e2-medium",
       "Count": 1
     },
     {
       "Type": "Compute",
-      "Subtype": "EC2",
-      "InstanceType": "t3.micro",
+      "Subtype": "Compute Engine",
+      "InstanceType": "e2-small",
       "Count": 3
     },
     {
       "Type": "Database",
-      "Subtype": "SQLite",
+      "Engine": "SQLite",
       "Count": 1
     }
   ]

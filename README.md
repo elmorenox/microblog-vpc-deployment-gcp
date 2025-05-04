@@ -73,7 +73,7 @@ I deployed Prometheus and Grafana on a separate e2-small instance to monitor our
 
 ## SYSTEM DESIGN DIAGRAM
 
-![System Architecture Diagram](GCP-Diagram.jpg)
+![System Architecture Diagram](Diagram.jpg)
 
 The diagram illustrates the network architecture and components of our deployment:
 - VPC Network with public and private subnets
